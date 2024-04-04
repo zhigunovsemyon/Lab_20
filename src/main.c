@@ -72,14 +72,28 @@ Element **ReadTextFile(const char *fname)
 	}
 	
 	//Выделение памяти под массив и размеры
-	void *p = malloc(sizeof(uint16_t) * (1 + lines)
+	Element **p = malloc(sizeof(uint16_t) * (1 + lines)
 					+ sizeof(Element) * SumOfArray(cols, lines));
-	p += sizeof(uint16_t); //Смещаем 
+	p = (uint16_t*)p + 1; //Сдвиг указателя
+
+	((uint16_t*)p)[-1] = lines;
+	for (int i = 0; i < lines; ++i)
+	{
+		((uint16_t)p)[i] = 
+		p[i][0] = cols[i];
+		p[i] = ((uint16_t*)p[i]) + sizeof(uint16_t);
+		for (uint16_t j = 0; j < cols[i]; j++)
+		{
+			fscanf(f, EL_SPEC, p[i] + j);
+		}
+	}
+
 	free(cols);
 	fclose(f);
 }
 
 int main(void)
 {
+	ReadTextFile("1.txt");
 	return NOERR;
 }
