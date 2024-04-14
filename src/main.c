@@ -66,12 +66,12 @@ int16_t SumOfArray(int16_t *arr, uint16_t Amount)
 	return Sum; // Возврат суммы
 }
 
-void RM_Print(double **m)
+void RM_Print(double **m, const char *spec)
 {
 	for (uint16_t i = 0; i < RM_GetLineCount(m); i++)
 	{
 		for (uint16_t j = 0; j < RM_GetElCount(m[i]); j++)
-			printf("%lf\t", m[i][j]);
+			printf(spec, m[i][j]);
 		putchar('\n');
 	}
 }
@@ -102,11 +102,10 @@ double **RM_ReadTxtFile(FILE *f)
 	}
 
 	// Выделение памяти под массив и размеры
-	int mem = sizeof(double) * SumOfArray(cols, lines) +			//Память под непосредственно элементы 
+	int mem = sizeof(double) * SumOfArray(cols, lines) +		//Память под непосредственно элементы 
 			lines * (sizeof(uint16_t) + sizeof(uint16_t *)) +	//Память под размеры строк и вектор указателей
 			sizeof(uint16_t);									//Память под количество строк
 
-	printf("Allocated memory: %d\n", mem);
 	double **p = (double **)malloc(mem);
 	if (!p)
 		return NULL;
@@ -116,18 +115,20 @@ double **RM_ReadTxtFile(FILE *f)
 
 	for (int i = 0; i < lines; ++i)
 	{
-		p[i] = (double *)						//Запись в i-й элемент вектора указателей
-			(p +							//Начала вектора указателей +
-			 sizeof(uint16_t *) * lines +	//Пространства под вектор указателей +
-			 i * (sizeof(uint16_t) +		//Пространства под i записанных размеров строк +
-				  sizeof(double) * cols[i] +	//Пространства под i записанных строк, размер которых в cols[i] 
-				  sizeof(uint16_t)));		//Пространства под следующий размер строки
+		p[i] = (double *)					//Запись в i-й элемент вектора указателей
+			((void*)p +						//Начала вектора указателей +
+			sizeof(uint16_t *) * lines +	//Пространства под вектор указателей +
+			((!i) ? 0 :
+			i * (							//Пространства под i записанных размеров строк +
+				  sizeof(double) * cols[i - 1] +//Пространства под i записанных строк, размер которых в cols[i] 
+				  sizeof(uint16_t))));		//Пространства под следующий размер строки
 
 		((uint16_t *)p[i])[0] = cols[i];
 		p[i] = (double *)((uint16_t *)(p[i]) + 1);
 		for (uint16_t j = 0; j < cols[i]; j++)
 		{
-			fscanf(f, "%lf", p[i] + j);
+			if(!fscanf(f, "%lf", p[i] + j))
+				return NULL;
 		}
 	}
 
@@ -137,16 +138,57 @@ double **RM_ReadTxtFile(FILE *f)
 
 uint8_t RM_WriteBinary(double **arr, FILE *f)
 {
-	uint16_t LineCount = RM_GetLineCount(arr);
-	uint32_t mem = sizeof(uint16_t) + LineCount * (sizeof(double *) + sizeof(uint16_t));
-	for (uint16_t i = 0; i < LineCount; ++i)
-	{
-		mem += sizeof(double) * RM_GetElCount(arr[i]);
-	}
-	printf("Памяти для записи: %hu\n", mem);
-
 	if (!f)
 		return FILEERR;
+
+	uint16_t lines = RM_GetLineCount(arr);
+	//Запись числа строк
+	fwrite(&lines, sizeof(uint16_t), 1, f);
+
+	//Запись с начала области элементов
+	fwrite(GetMinusOne(arr[0]), sizeof(uint16_t) + sizeof(double), lines, f);
+
+	return NOERR;
+}
+
+double **RM_ReadBinFile(FILE *f)
+{
+	if (!f)
+		return NULL;
+
+	//Запись числа памяти для элементов матрицы и размеров
+	fseek(f, 0 , SEEK_END);
+	int mem = ftell(f);
+	rewind(f);//Перемотка файла в начало
+	
+	//Чтение числа элементов
+	uint16_t lines;
+	fread(&lines, sizeof(uint16_t), 1, f);
+	mem += lines * sizeof(double *); //Добавление памяти для вектора указателей
+	
+	//Выделение памяти для массива
+	double **p = (double **)malloc(mem);
+	if (!p)
+		return NULL;
+
+	p = (double **)((uint16_t *)p + 1); // Сдвиг указателя
+	((uint16_t *)p)[-1] = lines;		 // Запись количества строк
+
+	//Побайтное чтение файла в массив после оставления места под вектор указателей
+	fread(p + lines, 1, mem - 1, f);
+
+	for (uint16_t i = 0; i < lines; ++i)
+	{
+		p[i] = (double *)				//Запись в i-й элемент вектора указателей
+			((void *)p +				//Начала вектора указателей +
+			sizeof(uint16_t *) * lines +//Пространства под вектор указателей +
+			sizeof(uint16_t) +			//Пространства под размер строки
+			( (!i) ? 0 :
+			 i * (sizeof(uint16_t) +	//Пространства под i записанных размеров строк +
+				  sizeof(double) * RM_GetElCount(p[i - 1]) //Пространства под i записанных строк, размер которых в cols[i] 
+				  )));		//Пространства под следующий размер строки
+	}
+	return p;
 }
 
 double **ReadTextFile(const char *fname)
@@ -171,14 +213,27 @@ int main(int argc, const char **args)
 	if (!m)
 	{
 		puts("Получен NULL!");
-		return NOERR;
+		return FILEERR;
 	}
 
-	RM_Print(m);
+	puts("Текст файл");
+	RM_Print(m,"%lf\t");
 
+	FILE *wrbin = fopen("files/bin", "wb");
+	if(RM_WriteBinary(m, wrbin))
+		return FILEERR;
+	
+	fclose(wrbin);
+	RM_Free(m);
 
-	RM_WriteBinary(m, NULL);
+	puts("Бин файл");
+	FILE *rbin = fopen("files/bin", "rb");
+	m = RM_ReadBinFile(rbin);
+	if (!m)
+		return FILEERR;
+	RM_Print(m,"%lf\t");
 
+	fclose(rbin);
 	RM_Free(m);
 	return NOERR;
 }
