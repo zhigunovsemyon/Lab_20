@@ -13,4 +13,4 @@ project ("Lab_20")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED CMAKE_C_STANDARD)
 
-add_executable (${PROJECT_NAME} "src/main.c")
+add_executable (${PROJECT_NAME} "src/main.c" "src/RM.c")
