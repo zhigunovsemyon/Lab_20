@@ -20,7 +20,8 @@ static uint16_t int_SumOfArray(uint16_t *arr, uint16_t Amount)
 // Освобождение памаяти массива
 void RM_Free(double **arr)
 {
-	free(int_GetMinusOne(arr));
+	if (arr)
+		free(int_GetMinusOne(arr));
 }
 
 // Извлечение числа элементов строки
