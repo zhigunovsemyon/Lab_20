@@ -27,13 +27,12 @@
 void NullMatrix(double **arr);
 void FillMatrixRandom(double **arr, double a, double b);
 void FillMatrixManualy(double **arr);
+void Print(double **arr);
 double Random(double x, double y);
-double **ManualCreate(void);
 double **ReadTextFile(const char *fname);
+double **ReadBinary(const char *fname);
 uint8_t WriteTextFile(const char *fname, double **arr);
 uint8_t WriteBinary(const char *fname, double **arr);
-double **ReadBinary(const char *fname);
-void Print(double **arr);
 uint8_t CommandPicker(double **flag);
 uint16_t *CreateSizeArray(uint16_t rows);
 
@@ -273,38 +272,10 @@ double **ReadTextFile(const char *fname)
 	return ret;	   // Возврат матрицы, или NULL
 }
 
-/*Ручной ввод создание матрицы пользователем*/
-double **ManualCreate(void)
-{
-	uint16_t rows, *cols;
-	printf("Укажите число столбцов в матрице: ");
-	scanf("%hu", &rows);
-
-	// Создание массива размеров
-	cols = (uint16_t *)malloc(sizeof(uint16_t) * rows);
-	if (!cols)
-		return NULL;
-
-	// Наполнение массива размеров
-	for (uint16_t i = 0; i < rows; ++i)
-	{
-		printf("Введите размер %hu-ой строки", i);
-		scanf("%hu", cols + i);
-	}
-
-	// Создание матрицы из данных размеров, будет возвращён NULL при неудаче
-	double **m = RM_CreateArray(rows, cols);
-	free(cols);
-	return m;
-}
-
 // Возврат случайного числа из диапазона [a, b]. Требует предварительной инициализации посредством srand()
 double Random(double x, double y)
 {
-	// Требует доработки для генерации нецелых чисел
-	int a = (int)x;
-	int b = (int)y;
-	return (double)(rand() % (b - a + 1) + a);
+	return x + (double) (rand()) / ((double) (RAND_MAX / (y - x)));
 }
 
 // Заполнение матрицы arr случайными числами
